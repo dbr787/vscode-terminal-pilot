@@ -1,0 +1,22 @@
+{
+  "name": "terminal-pilot",
+  "displayName": "Terminal Pilot",
+  "publisher": "local",
+  "description": "Cycle all terminals (including splits) and show Claude Code state",
+  "version": "0.0.1",
+  "engines": { "vscode": "^1.93.0" },
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "terminalPilot.focusNext",
+        "title": "Terminal: Focus Next (All)"
+      },
+      {
+        "command": "terminalPilot.focusPrevious",
+        "title": "Terminal: Focus Previous (All)"
+      }
+    ]
+  }
+}
