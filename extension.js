@@ -55,13 +55,13 @@ async function cycle(direction) {
 function onExecStart(e) {
   const cmd = e.execution.commandLine.value.trim();
   if (/^claude(\s|$)/.test(cmd)) {
-    const originalName = stripIndicator(e.terminal.name);
+    const shellName = stripIndicator(e.terminal.name);
     claudeTerminals.set(e.terminal, {
       state: "idle",
       sessionId: null,
-      originalName,
+      originalName: shellName,
     });
-    scheduleRename(e.terminal, READY + originalName);
+    scheduleRename(e.terminal, READY + "claude");
   }
 }
 
@@ -126,7 +126,7 @@ function handleHook({ hook_event_name, session_id, cwd }) {
 
   if (targetTerminal) {
     const indicator = state === "working" ? WORKING : READY;
-    scheduleRename(targetTerminal, indicator + targetInfo.originalName);
+    scheduleRename(targetTerminal, indicator + "claude");
   }
 }
 

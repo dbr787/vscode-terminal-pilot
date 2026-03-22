@@ -35,7 +35,7 @@
       },
       {
         "command": "workbench.action.terminal.kill",
-        "key": "cmd+backspace",
+        "key": "cmd+shift+backspace",
         "when": "terminalFocus"
       },
       {
