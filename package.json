@@ -4,6 +4,12 @@
   "publisher": "local",
   "description": "Cycle all terminals (including splits) and show Claude Code state",
   "version": "0.0.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dbr787/vscode-terminal-pilot"
+  },
+  "categories": ["Other"],
   "engines": { "vscode": "^1.93.0" },
   "activationEvents": ["onStartupFinished"],
   "main": "./extension.js",
@@ -21,13 +27,21 @@
     "keybindings": [
       {
         "command": "terminalPilot.focusNext",
-        "key": "ctrl+]",
-        "when": "true"
+        "key": "ctrl+]"
       },
       {
         "command": "terminalPilot.focusPrevious",
-        "key": "ctrl+[",
-        "when": "true"
+        "key": "ctrl+["
+      },
+      {
+        "command": "workbench.action.terminal.kill",
+        "key": "cmd+backspace",
+        "when": "terminalFocus"
+      },
+      {
+        "command": "workbench.action.terminal.split",
+        "key": "cmd+\\",
+        "when": "terminalFocus"
       }
     ],
     "configurationDefaults": {
