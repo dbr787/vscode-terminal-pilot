@@ -2,7 +2,7 @@
 
 A personal VS Code extension that does two things:
 
-1. **Cycles all terminals** — `cmd+shift+]` / `cmd+shift+[` cycle through every terminal instance in a flat linear order, including splits across all terminal groups.
+1. **Cycles all terminals** — `ctrl+]` / `ctrl+[` cycle through every terminal in visual sidebar order, including splits within groups. Respects drag-drop reordering.
 
 2. **Claude Code state indicator** — detects when Claude Code is running in a terminal and shows its state in the status bar (`✓ Claude` when ready, `⟳ Claude` when working).
 
@@ -21,11 +21,11 @@ On first load, VS Code will prompt you to add the hooks to `~/.claude/settings.j
 
 ## Keybindings
 
-Add to `keybindings.json`:
+The extension registers `ctrl+]` / `ctrl+[` by default. To avoid conflicts with editor indent/outdent, add to `keybindings.json`:
 
 ```json
-{ "key": "cmd+shift+]", "command": "terminalPilot.focusNext" },
-{ "key": "cmd+shift+[", "command": "terminalPilot.focusPrevious" },
-{ "key": "cmd+shift+]", "command": "-workbench.action.nextEditorInGroup" },
-{ "key": "cmd+shift+[", "command": "-workbench.action.previousEditorInGroup" }
+{ "key": "ctrl+]", "command": "terminalPilot.focusNext" },
+{ "key": "ctrl+[", "command": "terminalPilot.focusPrevious" },
+{ "key": "ctrl+]", "command": "-editor.action.indentLines", "when": "editorTextFocus" },
+{ "key": "ctrl+[", "command": "-editor.action.outdentLines", "when": "editorTextFocus" }
 ```

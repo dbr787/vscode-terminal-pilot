@@ -17,6 +17,24 @@
         "command": "terminalPilot.focusPrevious",
         "title": "Terminal: Focus Previous (All)"
       }
-    ]
+    ],
+    "keybindings": [
+      {
+        "command": "terminalPilot.focusNext",
+        "key": "ctrl+]",
+        "when": "true"
+      },
+      {
+        "command": "terminalPilot.focusPrevious",
+        "key": "ctrl+[",
+        "when": "true"
+      }
+    ],
+    "configurationDefaults": {
+      "terminal.integrated.commandsToSkipShell": [
+        "terminalPilot.focusNext",
+        "terminalPilot.focusPrevious"
+      ]
+    }
   }
 }
