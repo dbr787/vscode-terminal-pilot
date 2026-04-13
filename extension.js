@@ -58,11 +58,32 @@ function activate(context) {
     ),
   );
 
+  ensureCommandsSkipShell();
+
   context.subscriptions.push(
     vscode.window.onDidStartTerminalShellExecution(onExecStart),
     vscode.window.onDidEndTerminalShellExecution(onExecEnd),
     vscode.window.onDidCloseTerminal((t) => agentTerminals.delete(t)),
   );
+}
+
+// ── Skip-shell setup ─────────────────────────────────────────────────────────
+
+function ensureCommandsSkipShell() {
+  const required = [
+    "terminalPilot.focusNext",
+    "terminalPilot.focusPrevious",
+  ];
+  const config = vscode.workspace.getConfiguration("terminal.integrated");
+  const current = config.get("commandsToSkipShell") || [];
+  const missing = required.filter((cmd) => !current.includes(cmd));
+  if (missing.length > 0) {
+    config.update(
+      "commandsToSkipShell",
+      [...current, ...missing],
+      vscode.ConfigurationTarget.Global,
+    );
+  }
 }
 
 // ── Terminal cycling ──────────────────────────────────────────────────────────
@@ -133,7 +154,6 @@ function getAgentTerminalOptions(agent) {
     name: meta.displayName,
     iconPath: new vscode.ThemeIcon(meta.iconThemeId),
     color: new vscode.ThemeColor(meta.color),
-    titleTemplate: "${sequence}",
   };
 }
 

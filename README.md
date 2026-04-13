@@ -1,34 +1,34 @@
 # terminal-pilot
 
-A personal VS Code extension that does two things:
+A personal VS Code extension for terminal navigation and AI agent terminal management.
 
-1. **Cycles all terminals** — `ctrl+]` / `ctrl+[` cycle through every terminal in visual sidebar order, including splits within groups. Respects drag-drop reordering.
+## Features
 
-2. **Claude Code state indicator** — detects when Claude Code is running in a terminal and prefixes the terminal tab name with a state icon (`◦` ready, `●` working).
+1. **Cycle all terminals** — `ctrl+]` / `ctrl+[` cycle through every terminal in visual sidebar order, including splits within groups. Respects drag-drop reordering.
 
-## Installation
+2. **Agent terminals** — create styled terminals for Claude, Codex, and Amp with custom icons, colors, and names. Terminals are automatically renamed when an agent launches or exits.
 
-The extension lives at `~/.vscode/extensions/terminal-pilot-0.0.1` as a symlink to this repo. No build step required.
+## Development
 
-## Claude state detection
+The extension lives at `~/.vscode/extensions/local.terminal-pilot-0.0.1` as a symlink to this repo:
 
-Uses two layers:
+```sh
+ln -s /path/to/this/repo ~/.vscode/extensions/local.terminal-pilot-0.0.1
+```
 
-- **Shell integration** — detects when `claude` is launched in a terminal via `onDidStartTerminalShellExecution` and prefixes the tab name with `◦`
-- **HTTP hooks** — a local server on port 7891 receives Claude Code hook events (`UserPromptSubmit` → `●`, `Stop` → `◦`)
-
-When Claude exits, the original terminal name is restored. On first load, VS Code will prompt you to add the hooks to `~/.claude/settings.json`. Accept to enable working/idle state detection.
+No build step required — edit files and reload the VS Code window (`Cmd+Shift+P` → "Developer: Reload Window") to pick up changes.
 
 ## Keybindings
 
-| Key | Action | Source |
-|-----|--------|--------|
-| `ctrl+]` | Focus next terminal | extension |
-| `ctrl+[` | Focus previous terminal | extension |
-| `cmd+\` | Split terminal (when terminal focused) | extension |
-| `cmd+backspace` | Kill terminal (when terminal focused) | extension |
-| `ctrl+\`` | Toggle terminal panel | VS Code default |
-| `ctrl+shift+\`` | New terminal | VS Code default |
+| Key | Action |
+|-----|--------|
+| `ctrl+]` | Focus next terminal |
+| `ctrl+[` | Focus previous terminal |
+| `cmd+\` | Split terminal (when terminal focused) |
+| `cmd+shift+backspace` | Kill terminal (when terminal focused) |
+| `cmd+shift+c` | New Claude terminal |
+| `cmd+shift+o` | New Codex terminal |
+| `cmd+shift+a` | New Amp terminal |
 
 To avoid conflicts with editor indent/outdent, add to `keybindings.json`:
 

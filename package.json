@@ -12,10 +12,7 @@
   "categories": ["Other"],
   "engines": { "vscode": "^1.93.0" },
   "activationEvents": [
-    "onStartupFinished",
-    "onTerminalProfile:terminalPilot.claude",
-    "onTerminalProfile:terminalPilot.codex",
-    "onTerminalProfile:terminalPilot.amp"
+    "onStartupFinished"
   ],
   "extensionKind": ["ui"],
   "main": "./extension.js",
@@ -48,22 +45,19 @@
           "id": "terminalPilot.claude",
           "title": "Terminal Pilot Claude",
           "icon": "claude",
-          "color": "terminal.ansiYellow",
-          "titleTemplate": "${sequence}"
+          "color": "terminal.ansiYellow"
         },
         {
           "id": "terminalPilot.codex",
           "title": "Terminal Pilot Codex",
           "icon": "openai",
-          "color": "terminal.ansiBlue",
-          "titleTemplate": "${sequence}"
+          "color": "terminal.ansiBlue"
         },
         {
           "id": "terminalPilot.amp",
           "title": "Terminal Pilot Amp",
           "icon": "sparkle",
-          "color": "terminal.ansiGreen",
-          "titleTemplate": "${sequence}"
+          "color": "terminal.ansiGreen"
         }
       ]
     },
@@ -99,11 +93,6 @@
         "key": "cmd+shift+a"
       }
     ],
-    "configurationDefaults": {
-      "terminal.integrated.commandsToSkipShell": [
-        "terminalPilot.focusNext",
-        "terminalPilot.focusPrevious"
-      ]
-    }
+    "configurationDefaults": {}
   }
 }
