@@ -2,7 +2,7 @@
   "name": "terminal-pilot",
   "displayName": "Terminal Pilot",
   "publisher": "local",
-  "description": "Cycle all terminals (including splits) and show Claude Code state",
+  "description": "Cycle all terminals, track Claude/Codex/Amp terminals, and create styled agent terminals",
   "version": "0.0.1",
   "license": "MIT",
   "repository": {
@@ -11,7 +11,13 @@
   },
   "categories": ["Other"],
   "engines": { "vscode": "^1.93.0" },
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "onStartupFinished",
+    "onTerminalProfile:terminalPilot.claude",
+    "onTerminalProfile:terminalPilot.codex",
+    "onTerminalProfile:terminalPilot.amp"
+  ],
+  "extensionKind": ["ui"],
   "main": "./extension.js",
   "contributes": {
     "commands": [
@@ -22,8 +28,45 @@
       {
         "command": "terminalPilot.focusPrevious",
         "title": "Terminal: Focus Previous (All)"
+      },
+      {
+        "command": "terminalPilot.newClaudeTerminal",
+        "title": "Terminal Pilot: New Claude Terminal"
+      },
+      {
+        "command": "terminalPilot.newCodexTerminal",
+        "title": "Terminal Pilot: New Codex Terminal"
+      },
+      {
+        "command": "terminalPilot.newAmpTerminal",
+        "title": "Terminal Pilot: New Amp Terminal"
       }
     ],
+    "terminal": {
+      "profiles": [
+        {
+          "id": "terminalPilot.claude",
+          "title": "Terminal Pilot Claude",
+          "icon": "claude",
+          "color": "terminal.ansiYellow",
+          "titleTemplate": "${sequence}"
+        },
+        {
+          "id": "terminalPilot.codex",
+          "title": "Terminal Pilot Codex",
+          "icon": "openai",
+          "color": "terminal.ansiBlue",
+          "titleTemplate": "${sequence}"
+        },
+        {
+          "id": "terminalPilot.amp",
+          "title": "Terminal Pilot Amp",
+          "icon": "sparkle",
+          "color": "terminal.ansiGreen",
+          "titleTemplate": "${sequence}"
+        }
+      ]
+    },
     "keybindings": [
       {
         "command": "terminalPilot.focusNext",
@@ -42,6 +85,18 @@
         "command": "workbench.action.terminal.split",
         "key": "cmd+\\",
         "when": "terminalFocus"
+      },
+      {
+        "command": "terminalPilot.newClaudeTerminal",
+        "key": "cmd+shift+c"
+      },
+      {
+        "command": "terminalPilot.newCodexTerminal",
+        "key": "cmd+shift+o"
+      },
+      {
+        "command": "terminalPilot.newAmpTerminal",
+        "key": "cmd+shift+a"
       }
     ],
     "configurationDefaults": {

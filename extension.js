@@ -1,24 +1,33 @@
 const vscode = require("vscode");
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
 
-const HOOK_PORT = 7891;
-const HOOK_URL = `http://127.0.0.1:${HOOK_PORT}/`;
-const CLAUDE_SETTINGS = path.join(os.homedir(), ".claude", "settings.json");
+const AGENTS = {
+  claude: {
+    displayName: "claude",
+    launchCommand: "claude",
+    iconThemeId: "claude",
+    color: "terminal.ansiYellow",
+  },
+  codex: {
+    displayName: "codex",
+    launchCommand: "codex",
+    iconThemeId: "openai",
+    color: "terminal.ansiBlue",
+  },
+  amp: {
+    displayName: "amp",
+    launchCommand: "amp",
+    iconThemeId: "sparkle",
+    color: "terminal.ansiGreen",
+  },
+};
 
-const WORKING = "● "; // filled circle = busy
-const READY = "◦ "; // white bullet = ready
-
-// Map from Terminal -> { state: 'idle' | 'working', sessionId: string | null, originalName: string }
-const claudeTerminals = new Map();
+// Map from Terminal -> { agent, originalName }
+const agentTerminals = new Map();
+const keepFocusOnRename = new Set();
 
 // Rename queue: keyed by terminal so newer renames overwrite pending ones
 const pendingRenames = new Map();
 let isRenaming = false;
-
-let hookServer;
 
 function activate(context) {
   context.subscriptions.push(
@@ -26,23 +35,42 @@ function activate(context) {
     vscode.commands.registerCommand("terminalPilot.focusPrevious", () =>
       cycle(-1),
     ),
+    vscode.commands.registerCommand("terminalPilot.newClaudeTerminal", () =>
+      createAgentTerminal("claude"),
+    ),
+    vscode.commands.registerCommand("terminalPilot.newCodexTerminal", () =>
+      createAgentTerminal("codex"),
+    ),
+    vscode.commands.registerCommand("terminalPilot.newAmpTerminal", () =>
+      createAgentTerminal("amp"),
+    ),
+    vscode.window.registerTerminalProfileProvider(
+      "terminalPilot.claude",
+      createProfileProvider("claude"),
+    ),
+    vscode.window.registerTerminalProfileProvider(
+      "terminalPilot.codex",
+      createProfileProvider("codex"),
+    ),
+    vscode.window.registerTerminalProfileProvider(
+      "terminalPilot.amp",
+      createProfileProvider("amp"),
+    ),
   );
 
   context.subscriptions.push(
     vscode.window.onDidStartTerminalShellExecution(onExecStart),
     vscode.window.onDidEndTerminalShellExecution(onExecEnd),
-    vscode.window.onDidCloseTerminal((t) => claudeTerminals.delete(t)),
+    vscode.window.onDidCloseTerminal((t) => agentTerminals.delete(t)),
   );
-
-  startHookServer(context);
-  ensureClaudeHooks();
 }
 
 // ── Terminal cycling ──────────────────────────────────────────────────────────
 
 async function cycle(direction) {
-  // Focus the terminal tab list widget, which is ordered by visual position
-  // (respects drag-drop reordering and includes split terminals).
+  // Navigate the terminal tab list to cycle in visual order, including split
+  // panes. VS Code's built-in focusNext/focusPrevious skip splits, so we must
+  // drive the tab list directly.
   await vscode.commands.executeCommand("workbench.action.terminal.focusTabs");
   await vscode.commands.executeCommand(
     direction > 0 ? "list.focusDown" : "list.focusUp",
@@ -50,83 +78,25 @@ async function cycle(direction) {
   await vscode.commands.executeCommand("list.select");
 }
 
-// ── Shell integration: detect claude launch/exit ──────────────────────────────
+// ── Shell integration: detect agent launch/exit ──────────────────────────────
 
 function onExecStart(e) {
   const cmd = e.execution.commandLine.value.trim();
-  if (/^claude(\s|$)/.test(cmd)) {
-    const shellName = stripIndicator(e.terminal.name);
-    claudeTerminals.set(e.terminal, {
-      state: "idle",
-      sessionId: null,
-      originalName: shellName,
-    });
-    scheduleRename(e.terminal, READY + "claude");
+  const agent = detectAgent(cmd);
+  if (agent) {
+    const existing = agentTerminals.get(e.terminal);
+    const originalName =
+      existing?.originalName ?? stripAgentPrefix(e.terminal.name);
+    agentTerminals.set(e.terminal, { agent, originalName });
+    scheduleRename(e.terminal, AGENTS[agent].displayName);
   }
 }
 
 function onExecEnd(e) {
-  const info = claudeTerminals.get(e.terminal);
+  const info = agentTerminals.get(e.terminal);
   if (info) {
-    claudeTerminals.delete(e.terminal);
+    agentTerminals.delete(e.terminal);
     scheduleRename(e.terminal, info.originalName);
-  }
-}
-
-// ── HTTP hook server ──────────────────────────────────────────────────────────
-
-function startHookServer(context) {
-  hookServer = http.createServer((req, res) => {
-    if (req.method !== "POST") {
-      res.end();
-      return;
-    }
-    let body = "";
-    req.on("data", (d) => (body += d));
-    req.on("end", () => {
-      res.writeHead(200);
-      res.end();
-      try {
-        handleHook(JSON.parse(body));
-      } catch {}
-    });
-  });
-  hookServer.on("error", () => {}); // ignore port conflicts silently
-  hookServer.listen(HOOK_PORT, "127.0.0.1");
-  context.subscriptions.push({ dispose: () => hookServer.close() });
-}
-
-function handleHook({ hook_event_name, session_id, cwd }) {
-  const state =
-    hook_event_name === "UserPromptSubmit" || hook_event_name === "PreToolUse"
-      ? "working"
-      : "idle";
-
-  let targetTerminal = null;
-  let targetInfo = null;
-
-  // Match by session_id first, then by cwd
-  for (const [terminal, info] of claudeTerminals) {
-    const termCwd = terminal.shellIntegration?.cwd?.fsPath;
-    if (info.sessionId === session_id || (cwd && termCwd === cwd)) {
-      if (session_id) info.sessionId = session_id;
-      info.state = state;
-      targetTerminal = terminal;
-      targetInfo = info;
-      break;
-    }
-  }
-
-  // Fall back to most recently added Claude terminal
-  if (!targetTerminal && claudeTerminals.size > 0) {
-    [targetTerminal, targetInfo] = [...claudeTerminals.entries()].at(-1);
-    if (session_id) targetInfo.sessionId = session_id;
-    targetInfo.state = state;
-  }
-
-  if (targetTerminal) {
-    const indicator = state === "working" ? WORKING : READY;
-    scheduleRename(targetTerminal, indicator + "claude");
   }
 }
 
@@ -135,13 +105,51 @@ function handleHook({ hook_event_name, session_id, cwd }) {
 // VS Code has no API to change a terminal tab's icon after creation, but we can
 // rename it. We briefly make the target terminal active, issue the rename
 // command, then restore the previously active terminal. A queue ensures rapid
-// state changes don't pile up: newer renames for the same terminal overwrite
-// pending ones.
+// renames don't pile up: newer renames for the same terminal overwrite pending
+// ones.
 
-function stripIndicator(name) {
-  if (name.startsWith(WORKING)) return name.slice(WORKING.length);
-  if (name.startsWith(READY)) return name.slice(READY.length);
-  return name;
+function stripAgentPrefix(name) {
+  return name.replace(/^(claude|codex|amp)\s*/i, "").trim();
+}
+
+function detectAgent(commandLine) {
+  if (/^claude(\s|$)/.test(commandLine)) return "claude";
+  if (/^codex(\s|$)/.test(commandLine)) return "codex";
+  if (/^amp(\s|$)/.test(commandLine)) return "amp";
+  return null;
+}
+
+function createProfileProvider(agent) {
+  return {
+    provideTerminalProfile() {
+      return new vscode.TerminalProfile(getAgentTerminalOptions(agent));
+    },
+  };
+}
+
+function getAgentTerminalOptions(agent) {
+  const meta = AGENTS[agent];
+  return {
+    name: meta.displayName,
+    iconPath: new vscode.ThemeIcon(meta.iconThemeId),
+    color: new vscode.ThemeColor(meta.color),
+    titleTemplate: "${sequence}",
+  };
+}
+
+async function createAgentTerminal(agent) {
+  const meta = AGENTS[agent];
+  const terminal = vscode.window.createTerminal(getAgentTerminalOptions(agent));
+  keepFocusOnRename.add(terminal);
+  terminal.show(false);
+  agentTerminals.set(terminal, {
+    agent,
+    originalName: stripAgentPrefix(terminal.name),
+  });
+  scheduleRename(terminal, meta.displayName);
+  await pause(50);
+  terminal.sendText(meta.launchCommand, true);
+  return terminal;
 }
 
 function scheduleRename(terminal, name) {
@@ -158,14 +166,16 @@ async function drainRenames() {
 
   const prevActive = vscode.window.activeTerminal;
   try {
-    terminal.show(true); // make active without stealing editor focus
+    terminal.show(true);
     await vscode.commands.executeCommand(
       "workbench.action.terminal.renameWithArg",
       { name },
     );
   } catch {}
 
-  if (prevActive && prevActive !== terminal) {
+  if (keepFocusOnRename.has(terminal)) {
+    keepFocusOnRename.delete(terminal);
+  } else if (prevActive && prevActive !== terminal) {
     prevActive.show(true);
   }
 
@@ -173,53 +183,10 @@ async function drainRenames() {
   drainRenames();
 }
 
-// ── Claude hooks config ───────────────────────────────────────────────────────
-
-function ensureClaudeHooks() {
-  let settings = {};
-  try {
-    settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS, "utf8"));
-  } catch {}
-
-  const curlCmd = `curl -s --max-time 2 -X POST ${HOOK_URL} -H 'Content-Type: application/json' -d @- || true`;
-  const hooks = settings.hooks ?? {};
-
-  const hasStop = JSON.stringify(hooks.Stop ?? "").includes(HOOK_URL);
-  const hasSubmit = JSON.stringify(hooks.UserPromptSubmit ?? "").includes(
-    HOOK_URL,
-  );
-  if (hasStop && hasSubmit) return;
-
-  const entry = { matcher: "", hooks: [{ type: "command", command: curlCmd }] };
-  if (!hasStop) hooks.Stop = [...(hooks.Stop ?? []), entry];
-  if (!hasSubmit)
-    hooks.UserPromptSubmit = [...(hooks.UserPromptSubmit ?? []), entry];
-  settings.hooks = hooks;
-
-  vscode.window
-    .showInformationMessage(
-      "Terminal Pilot: Add Claude Code hooks to ~/.claude/settings.json for state indicators?",
-      "Add hooks",
-      "Skip",
-    )
-    .then((choice) => {
-      if (choice !== "Add hooks") return;
-      try {
-        fs.mkdirSync(path.dirname(CLAUDE_SETTINGS), { recursive: true });
-        fs.writeFileSync(CLAUDE_SETTINGS, JSON.stringify(settings, null, 2));
-        vscode.window.showInformationMessage(
-          "Terminal Pilot: Claude hooks configured.",
-        );
-      } catch (e) {
-        vscode.window.showErrorMessage(
-          `Terminal Pilot: Failed to write hooks — ${e.message}`,
-        );
-      }
-    });
+function pause(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function deactivate() {
-  hookServer?.close();
-}
+function deactivate() {}
 
 module.exports = { activate, deactivate };
